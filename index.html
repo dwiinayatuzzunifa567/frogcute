@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lompat Katak Matematika</title>
+    <style>
+        /* =========================================
+           CSS VARIABLES & RESET
+        ========================================= */
+        :root {
+            --primary-bg: #87CEEB; /* Langit Biru */
+            --water-color: rgba(30, 144, 255, 0.7);
+            --water-dark: rgba(0, 105, 204, 0.8);
+            --pad-color: #2E8B57;
+            --text-light: #FFFFFF;
+            --text-dark: #333333;
+            --ui-bg: rgba(255, 255, 255, 0.9);
+            --correct-color: #4CAF50;
+            --wrong-color: #F44336;
+            --shadow: 0 4px 8px rgba(0,0,0,0.2);
+            --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none; /* Mencegah seleksi teks saat tap cepat */
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: #333; /* Warna latar belakang layar */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: none; /* Mencegah pull-to-refresh di HP */
+        }
+
+        /* =========================================
+           LAYOUT UTAMA
+        ========================================= */
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 1200px;
+            height: 100%;
+            max-height: 800px;
+            background: linear-gradient(to bottom, var(--primary-bg) 0%, #E0F6FF 50%, #4facfe 100%);
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        /* Lingkungan (Awan, Air, Pohon) */
+        .scenery {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .cloud {
+            position: absolute;
+            background: white;
+            border-radius: 50px;
+            opacity: 0.8;
+            animation: moveClouds linear infinite;
+        }
+        .cloud::before, .cloud::after {
+            content: '';
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+        }
+        .cloud1 { top: 10%; left: -20%; width: 100px; height: 30px; animation-duration: 25s; }
+        .cloud1::before { width: 50px; height: 50px; top: -25px; left: 15px; }
+        .cloud1::after { width: 40px; height: 40px; top: -15px; left: 55px; }
+        
+        .cloud2 { top: 20%; left: -30%; width: 150px; height: 45px; animation-duration: 35s; animation-delay: 5s; transform: scale(0.8); }
+        .cloud2::before { width: 70px; height: 70px; top: -35px; left: 20px; }
+        .cloud2::after { width: 60px; height: 60px; top: -20px; left: 70px; }
+
+        @keyframes moveClouds {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(1200px); } /* Sesuaikan dengan max-width */
+        }
+
+        .water-area {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 40%;
+            z-index: 2;
+        }
+
+        .wave {
+            position: absolute;
+            bottom: 0;
+            width: 200%;
+            height: 100%;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" preserveAspectRatio="none"><path d="M0,50 C100,80 200,20 300,50 C400,80 500,20 600,50 C700,80 800,20 800,50 L800,200 L0,200 Z" fill="rgba(30, 144, 255, 0.5)"/></svg>') repeat-x;
+            background-size: 50% 100%;
+            animation: waveAnim 5s linear infinite;
+        }
+        .wave:nth-child(2) {
+            bottom: -10px;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" preserveAspectRatio="none"><path d="M0,50 C100,20 200,80 300,50 C400,20 500,80 600,50 C700,20 800,80 800,50 L800,200 L0,200 Z" fill="rgba(0, 105, 204, 0.6)"/></svg>') repeat-x;
+            background-size: 50% 100%;
+            animation: waveAnim 7s linear infinite reverse;
+        }
+
+        @keyframes waveAnim {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        /* =========================================
+           UI ELEMENTS
+        ========================================= */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 10;
+            pointer-events: none; /* Agar klik tembus ke bawah jika diperlukan */
+        }
+
+        .ui-box {
+            background: var(--ui-bg);
+            padding: 10px 15px;
+            border-radius: 15px;
+            box-shadow: var(--shadow);
+            font-weight: bold;
+            color: var(--text-dark);
+            pointer-events: auto;
+            border: 2px solid white;
+        }
+
+        #stats-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            font-size: 1.1rem;
+        }
+        .stat-item { display: flex; align-items: center; gap: 8px; }
+        .icon-correct { color: var(--correct-color); }
+        .icon-wrong { color: var(--wrong-color); }
+
+        #question-panel {
+            text-align: center;
+            font-size: 2rem;
+            min-width: 200px;
+            background: #fff9c4;
+            border: 3px solid #fbc02d;
+            animation: pulse 2s infinite;
+        }
+        
+        #timer-bar-container {
+            width: 100%;
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+        #timer-bar {
+            height: 100%;
+            width: 100%;
+            background: var(--correct-color);
+            transition: width 0.1s linear, background-color 0.3s;
+        }
+
+        #controls-panel {
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            background: var(--ui-bg);
+            border: none;
+            padding: 10px;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            font-size: 1.5rem;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.2s;
+            pointer-events: auto;
+        }
+        .control-btn:hover { transform: scale(1.1); }
+        .control-btn:active { transform: scale(0.9); }
+
+        #lives-container {
+            font-size: 1.5rem;
+            color: #ff1744;
+            margin-top: 5px;
+            text-align: right;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* =========================================
+           GAME ELEMENTS
+        ========================================= */
+        #game-area {
+            position: absolute;
+            top: 25%;
+            width: 100%;
+            height: 75%;
+            z-index: 5;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        /* Lily Pads */
+        #pads-container {
+            display: flex;
+            justify-content: space-around;
+            width: 90%;
+            margin-bottom: 25%;
+            perspective: 1000px;
+        }
+
+        .pad-wrapper {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.3s, opacity 0.5s;
+            animation: floatPad 3s ease-in-out infinite;
+        }
+        
+        .pad-wrapper:nth-child(2) { animation-delay: 0.5s; }
+        .pad-wrapper:nth-child(3) { animation-delay: 1s; }
+        .pad-wrapper:nth-child(4) { animation-delay: 1.5s; }
+
+        @keyframes floatPad {
+            0%, 100% { transform: translateY(0) rotateX(20deg); }
+            50% { transform: translateY(-10px) rotateX(20deg); }
+        }
+
+        /* Gambar Daun Teratai dengan CSS/SVG */
+        .pad-svg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            filter: drop-shadow(0 10px 5px rgba(0,0,0,0.3));
+            transition: filter 0.2s;
+        }
+        .pad-wrapper:hover .pad-svg { filter: drop-shadow(0 15px 8px rgba(0,0,0,0.4)) brightness(1.1); }
+        .pad-wrapper:active .pad-svg { filter: drop-shadow(0 5px 3px rgba(0,0,0,0.5)); transform: scale(0.95); }
+
+        .pad-text {
+            position: relative;
+            z-index: 2;
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: white;
+            text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 0 4px 4px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+
+        /* Katak */
+        #frog-wrapper {
+            position: absolute;
+            bottom: 5%; /* Posisi awal di bawah layar */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 80px;
+            z-index: 10;
+            transition: transform 0.5s linear; /* Untuk gerakan X */
+        }
+
+        #frog {
+            width: 100%;
+            height: 100%;
+            transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.4, 1); /* Untuk gerakan Y (Lompat Parabola) */
+            filter: drop-shadow(0 15px 5px rgba(0,0,0,0.4));
+        }
+
+        /* Animasi Katak Tenggelam */
+        @keyframes sink {
+            0% { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+            50% { transform: translateY(50px) scale(0.8) rotate(15deg); opacity: 0.5; }
+            100% { transform: translateY(100px) scale(0) rotate(45deg); opacity: 0; }
+        }
+
+        /* =========================================
+           EFEK & PARTIKEL
+        ========================================= */
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            z-index: 20;
+            background: gold;
+            width: 10px;
+            height: 10px;
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+            animation: popParticle 0.8s ease-out forwards;
+        }
+
+        @keyframes popParticle {
+            0% { transform: scale(0) translate(0, 0); opacity: 1; }
+            100% { transform: scale(1.5) translate(var(--tx), var(--ty)); opacity: 0; }
+        }
+
+        .ripple {
+            position: absolute;
+            border: 4px solid rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 3;
+            animation: rippleEffect 1s ease-out forwards;
+        }
+
+        @keyframes rippleEffect {
+            0% { width: 0; height: 0; opacity: 1; }
+            100% { width: 150px; height: 150px; opacity: 0; }
+        }
+
+        .splash-drop {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 15;
+            animation: splashAnim 0.6s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
+        }
+
+        @keyframes splashAnim {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            50% { transform: translateY(-50px) scale(1.2); opacity: 0.8; }
+            100% { transform: translateY(20px) scale(0); opacity: 0; }
+        }
+
+        /* =========================================
+           SCREENS (START & GAME OVER)
+        ========================================= */
+        .screen-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            max-width: 400px;
+            width: 90%;
+            animation: modalPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 5px solid var(--primary-bg);
+        }
+
+        @keyframes modalPop {
+            from { transform: scale(0.5); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .modal h1 { color: var(--text-dark); margin-bottom: 10px; font-size: 2.2rem; }
+        .modal p { color: #666; margin-bottom: 25px; font-size: 1.1rem; line-height: 1.5; }
+        .modal .score-highlight { font-size: 3rem; color: var(--correct-color); font-weight: bold; margin: 15px 0; }
+        
+        .btn {
+            background: #ff9800;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #e65100;
+            transition: all 0.1s;
+            width: 100%;
+            font-family: inherit;
+        }
+        .btn:hover { transform: translateY(2px); box-shadow: 0 3px 0 #e65100; background: #fb8c00; }
+        .btn:active { transform: translateY(5px); box-shadow: none; }
+
+        .hidden { display: none !important; }
+
+        /* =========================================
+           RESPONSIVE DESIGN (Media Queries)
+        ========================================= */
+        /* Tablet & Desktop Kecil */
+        @media (max-width: 992px) {
+            #question-panel { font-size: 1.8rem; min-width: 180px; }
+            .pad-wrapper { width: 100px; height: 100px; }
+            .pad-text { font-size: 1.8rem; }
+            #frog-wrapper { width: 70px; height: 70px; }
+        }
+
+        /* HP Landscape & Tablet Portrait */
+        @media (max-width: 768px) {
+            #ui-layer { padding: 10px; }
+            .ui-box { padding: 8px 10px; font-size: 0.9rem; }
+            #question-panel { font-size: 1.5rem; }
+            .control-btn { width: 36px; height: 36px; font-size: 1.2rem; }
+            .pad-wrapper { width: 90px; height: 90px; }
+            .pad-text { font-size: 1.5rem; }
+            #frog-wrapper { width: 60px; height: 60px; }
+            #lives-container { font-size: 1.2rem; }
+        }
+
+        /* HP Portrait (Sangat penting) */
+        @media (max-width: 576px) {
+            /* Tata ulang UI menjadi kolom */
+            #ui-layer {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            
+            #stats-panel {
+                order: 2;
+                flex-direction: row;
+                width: 100%;
+                justify-content: space-around;
+                margin-top: 5px;
+            }
+
+            #question-panel {
+                order: 1;
+                width: calc(100% - 100px); /* Sisa ruang setelah tombol kanan */
+                font-size: 1.8rem;
+            }
+
+            #controls-panel {
+                order: 1;
+                width: 90px;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 5px;
+            }
+            
+            #lives-container { display: inline-block; margin-left: 10px; }
+
+            /* Ubah Daun menjadi Grid 2x2 agar muat dan mudah disentuh */
+            #game-area {
+                justify-content: center;
+                padding-top: 100px; /* Space untuk UI */
+            }
+
+            #pads-container {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 20px 40px;
+                width: auto;
+                margin-bottom: 20%;
+            }
+
+            .pad-wrapper {
+                width: 110px; /* Perbesar sedikit untuk target sentuh */
+                height: 110px;
+                margin: 0 auto;
+            }
+            .pad-text { font-size: 1.8rem; }
+        }
+
+        /* Layar sangat kecil */
+        @media (max-width: 350px) {
+            .pad-wrapper { width: 90px; height: 90px; }
+            #question-panel { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Latar Belakang Lingkungan -->
+        <div class="scenery">
+            <div class="cloud cloud1"></div>
+            <div class="cloud cloud2"></div>
+        </div>
+
+        <!-- Area Air -->
+        <div class="water-area">
+            <div class="wave"></div>
+            <div class="wave"></div>
+        </div>
+
+        <!-- UI Atas -->
+        <div id="ui-layer">
+            <div id="stats-panel" class="ui-box">
+                <div class="stat-item">Skor: <span id="score">0</span></div>
+                <div class="stat-item icon-correct">✔ <span id="correct-count">0</span></div>
+                <div class="stat-item icon-wrong">✖ <span id="wrong-count">0</span></div>
+            </div>
+
+            <div id="question-panel" class="ui-box">
+                <div id="question-text">Siap?</div>
+                <div id="timer-bar-container">
+                    <div id="timer-bar"></div>
+                </div>
+            </div>
+
+            <div id="controls-panel">
+                <div style="display: flex; gap: 5px;">
+                    <button id="btn-audio" class="control-btn" aria-label="Toggle Audio" title="Audio ON/OFF">🎵</button>
+                    <button id="btn-fullscreen" class="control-btn" aria-label="Toggle Fullscreen" title="Full Screen">⛶</button>
+                </div>
+                <div id="lives-container">
+                    <span id="lives">❤❤❤</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Area Bermain -->
+        <div id="game-area">
+            <!-- Container Daun Teratai -->
+            <div id="pads-container">
+                <!-- Daun digenerate via JS -->
+            </div>
+            
+            <!-- Katak (Menggunakan inline SVG agar ringan dan mandiri) -->
+            <div id="frog-wrapper">
+                <div id="frog">
+                    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Kaki belakang -->
+                        <ellipse cx="20" cy="80" rx="15" ry="10" fill="#228B22" transform="rotate(-30 20 80)"/>
+                        <ellipse cx="80" cy="80" rx="15" ry="10" fill="#228B22" transform="rotate(30 80 80)"/>
+                        <!-- Kaki depan -->
+                        <ellipse cx="35" cy="85" rx="8" ry="12" fill="#32CD32" />
+                        <ellipse cx="65" cy="85" rx="8" ry="12" fill="#32CD32" />
+                        <!-- Badan -->
+                        <ellipse cx="50" cy="65" rx="35" ry="25" fill="#32CD32" />
+                        <!-- Mata (Background) -->
+                        <circle cx="35" cy="35" r="15" fill="#32CD32" />
+                        <circle cx="65" cy="35" r="15" fill="#32CD32" />
+                        <!-- Mata (Putih) -->
+                        <circle cx="35" cy="35" r="12" fill="white" />
+                        <circle cx="65" cy="35" r="12" fill="white" />
+                        <!-- Pupil -->
+                        <circle cx="35" cy="35" r="5" fill="black" id="pupil-l" />
+                        <circle cx="65" cy="35" r="5" fill="black" id="pupil-r" />
+                        <!-- Mulut -->
+                        <path d="M 35 70 Q 50 85 65 70" fill="transparent" stroke="#006400" stroke-width="3" stroke-linecap="round"/>
+                        <!-- Bercak -->
+                        <circle cx="45" cy="55" r="3" fill="#228B22" opacity="0.5"/>
+                        <circle cx="55" cy="60" r="4" fill="#228B22" opacity="0.5"/>
+                        <circle cx="35" cy="62" r="2.5" fill="#228B22" opacity="0.5"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Layar Mulai -->
+        <div id="screen-start" class="screen-overlay">
+            <div class="modal">
+                <h1>Lompat Katak</h1>
+                <p>Bantu katak melompat ke daun dengan jawaban matematika yang benar!<br><br>Waktu: 10 Detik/soal<br>Materi: Perkalian & Pembagian</p>
+                <button id="btn-start" class="btn">Mulai Bermain</button>
+            </div>
+        </div>
+
+        <!-- Layar Game Over -->
+        <div id="screen-gameover" class="screen-overlay hidden">
+            <div class="modal">
+                <h1>Game Over</h1>
+                <p>Katak basah kuyup!</p>
+                <div>Skor Akhir:</div>
+                <div id="final-score" class="score-highlight">0</div>
+                <div style="display:flex; justify-content: space-around; margin-bottom: 20px; font-weight:bold;">
+                    <span class="icon-correct">✔ <span id="final-correct">0</span></span>
+                    <span class="icon-wrong">✖ <span id="final-wrong">0</span></span>
+                </div>
+                <button id="btn-restart" class="btn">Main Lagi</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        /**
+         * LOMPAT KATAK MATEMATIKA - LOGIC & ENGINE
+         * Konsep menggunakan modul fungsional di dalam satu file.
+         */
+
+        // =========================================
+        // 1. PENGATURAN STATE GAME
+        // =========================================
+        const GameState = {
+            score: 0,
+            correct: 0,
+            wrong: 0,
+            lives: 3,
+            isPlaying: false,
+            currentAnswer: 0,
+            difficulty: 1, // 1: Mudah, 2: Sedang, 3: Sulit
+            timeLimit: 10,
+            timeLeft: 10,
+            timerInterval: null,
+            isJumping: false
+        };
+
+        // DOM Elements Cache
+        const DOM = {
+            score: document.getElementById('score'),
+            correctCount: document.getElementById('correct-count'),
+            wrongCount: document.getElementById('wrong-count'),
+            lives: document.getElementById('lives'),
+            questionText: document.getElementById('question-text'),
+            timerBar: document.getElementById('timer-bar'),
+            padsContainer: document.getElementById('pads-container'),
+            frogWrapper: document.getElementById('frog-wrapper'),
+            frog: document.getElementById('frog'),
+            gameArea: document.getElementById('game-area'),
+            screenStart: document.getElementById('screen-start'),
+            screenGameOver: document.getElementById('screen-gameover'),
+            btnStart: document.getElementById('btn-start'),
+            btnRestart: document.getElementById('btn-restart'),
+            btnAudio: document.getElementById('btn-audio'),
+            btnFullscreen: document.getElementById('btn-fullscreen'),
+            finalScore: document.getElementById('final-score'),
+            finalCorrect: document.getElementById('final-correct'),
+            finalWrong: document.getElementById('final-wrong'),
+            gameContainer: document.getElementById('game-container')
+        };
+
+        // Posisi awal katak di tengah bawah
+        const INITIAL_FROG_POS = { x: 50, y: 5 }; // Persentase (x: left, y: bottom)
+
+        // =========================================
+        // 2. AUDIO ENGINE (Web Audio API)
+        // =========================================
+        const AudioEngine = {
+            ctx: null,
+            isMuted: false,
+            bgmOscillator: null,
+            bgmGain: null,
+            bgmInterval: null,
+            
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if(this.ctx.state === 'suspended') this.ctx.resume();
+            },
+
+            toggleMute() {
+                this.isMuted = !this.isMuted;
+                DOM.btnAudio.innerHTML = this.isMuted ? '🔇' : '🎵';
+                DOM.btnAudio.style.opacity = this.isMuted ? '0.5' : '1';
+                if(this.isMuted) this.stopBGM();
+                else if(GameState.isPlaying) this.startBGM();
+            },
+
+            playSFX(type) {
+                if (this.isMuted || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                const now = this.ctx.currentTime;
+
+                switch(type) {
+                    case 'jump':
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(300, now);
+                        osc.frequency.exponentialRampToValueAtTime(600, now + 0.2);
+                        gain.gain.setValueAtTime(0.3, now);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2
